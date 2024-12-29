@@ -1,30 +1,31 @@
 <?php
 namespace App\Http\Controllers;
 
+
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Mail;
-use Validator;
-use DB;
 use App\Models\Token;
-use App\Rules\MatchCurrentPassword;
+use Exception;
+use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-class AuthController extends Controller
+class AuthController extends Controller implements HasMiddleware
 {
-    /**
-     * Create a new AuthController instance.
-     *
-     * @return void
-     */
-    public function __construct()
+    public static function middleware()
     {
-        $this->middleware('jwt.verify', ['except' => ['login', 'register', 'otp-verification']]);
-        $this->middleware('jwt.xauth', ['except' => ['login', 'register', 'refresh', 'otp-verification']]);
-        $this->middleware('jwt.xrefresh', ['only' => ['refresh']]);
+        return [
+            new Middleware('jwt.verify', except: ['login', 'register', 'otp-verification']),
+            new Middleware('jwt.xauth', except: ['login', 'register', 'otp-verification', 'refresh']),
+            new Middleware('jwt.xrefresh', only: ['refresh'])
+        ];
     }
+
 
     /**
      * Get a JWT via given credentials.
@@ -169,7 +170,7 @@ class AuthController extends Controller
     public function changePassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'current_password' => ['required', new MatchCurrentPassword],
+            'current_password' => ['required', 'current_password'],
             'new_password' => 'required|string|min:6|same:new_confirm_password'
         ]);
 

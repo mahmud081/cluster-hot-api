@@ -17,11 +17,11 @@ class ProductController extends Controller
         if (auth()->check()) {
             return response([
                 'Product saved'
-            ], Response::HTTP_OK);
+            ], 200);
         } else {
             return response([
                 'Unauthenticated'
-            ], Response::HTTP_UNAUTHORIZED);
+            ], 401);
         }
     }
 

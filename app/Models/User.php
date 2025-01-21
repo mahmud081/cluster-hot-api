@@ -77,4 +77,9 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(Device::class, 'user_id');
     }
 
+    public function groups()
+    {
+        return $this->hasMany(Group::class, 'user_id');
+    }
+
 }

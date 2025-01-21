@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Device;
 use App\Models\Group;
+use App\Models\MqttAccessLog;
 use App\Models\Network;
 use App\Models\Property;
 use App\Models\Room;
 use App\Models\SharedDevice;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -338,5 +340,108 @@ class DeviceController extends Controller
         return response()->json([
             'success' => true,
         ], 201);
+    }
+
+    public function topicACLCheck(Request $request)
+    {
+        $email = $request->username;
+        $requested_topic = $request->topic;
+
+        /* $user = User::where('email', $email)->first();
+        if (!is_null($user)) {
+        return response()->noContent(200);
+        } */
+
+        $device_mac_id = '';
+        $device_id = 0;
+        if ($this->string_starts_with($requested_topic, 'tele/') || $this->string_starts_with($requested_topic, 'stat/') || $this->string_starts_with($requested_topic, 'cmnd/')) {
+            $topic_parts = explode('/', $requested_topic);
+            if (count($topic_parts) > 1) {
+                //$room_id_with_macid = $topic_parts[1];
+                $middle_topic = $topic_parts[1];
+                if ((stripos($middle_topic, 'clusterIoT') !== false) || (stripos($middle_topic, '_fb') !== false)) {
+                    $mqtt_access_log = MqttAccessLog::create([
+                        'req_type' => 'group_acl',
+                        'device_id' => $device_id,
+                        'email' => $email,
+                    ]);
+
+                    return response()->noContent(200);
+                } else {
+                    $room_id_with_macid_parts = explode('_', $middle_topic);
+                    if (count($room_id_with_macid_parts) > 1) {
+                        $device_mac_id = $room_id_with_macid_parts[1];
+                    }
+                }
+            }
+        } elseif ($this->string_starts_with($requested_topic, 'tasmota/discovery/')) {
+            $topic_parts = explode('/', $requested_topic);
+            if (count($topic_parts) > 2) {
+                $device_mac_id = $topic_parts[2];
+            }
+        }
+
+        if ($device_mac_id != '') {
+            $device = Device::where('mac', $device_mac_id)->first();
+            if (!is_null($device)) {
+                $device_id = $device->id;
+                $user = User::where('email', $email)->first();
+                if (!is_null($user)) {
+                    //have to write actual code
+                    // $has_access_to_the_topic = 0;
+                    $mqtt_access_log = MqttAccessLog::create([
+                        'req_type' => 'acl',
+                        'device_id' => $device_id,
+                        'email' => $email,
+                    ]);
+                    $check_shared_device = SharedDevice::where(['device_id' => $device_id, 'sharee_id' => $user->id, 'role' => 2])->first();
+                    if (($user->id == $device->user_id) || (!is_null($check_shared_device))) {
+                        return response()->noContent(200);
+                    }
+
+                    // if ($has_access_to_the_topic) {
+                    //     return response()->noContent(200);
+                    // }
+                }
+            } else {
+                // tele/<roomId_mac>/LWT
+                // stat/<roomId_mac>/status5
+                // cmnd/<roomId_mac>/status
+                //Manual override for these type of topics, no auth checking, sending 200 by default
+                if ((stripos($requested_topic, '/LWT') !== false) || (stripos($requested_topic, '/status5') !== false) || (stripos($requested_topic, '/status') !== false)) {
+                    return response()->noContent(200);
+                }
+            }
+        }
+
+        $mqtt_access_log = MqttAccessLog::create([
+            'req_type' => 'acl_fail',
+            'device_id' => $device_id,
+            'email' => $email,
+        ]);
+
+        return response()->noContent(400);
+    }
+
+    public function superuserCheck(Request $request)
+    {
+        $email = $request->username;
+
+        $mqtt_access_log = MqttAccessLog::create([
+            'req_type' => 'super',
+            'device_id' => 0,
+            'email' => $email,
+        ]);
+
+        if ($email == 'mahmudul.hasan@aclusterllc.com') {
+            return response()->noContent(200);
+        }
+
+        return response()->noContent(400);
+    }
+
+    private function string_starts_with($string, $query)
+    {
+        return substr($string, 0, strlen($query)) === $query;
     }
 }

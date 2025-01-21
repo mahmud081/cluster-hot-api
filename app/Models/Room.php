@@ -19,4 +19,9 @@ class Room extends Model
     {
         return $this->hasMany(Device::class, 'room_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

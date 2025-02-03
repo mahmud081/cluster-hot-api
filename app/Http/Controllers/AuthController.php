@@ -2,6 +2,8 @@
 namespace App\Http\Controllers;
 
 
+use App\Mail\EmailVerification;
+use App\Mail\VerifyUser;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Support\Facades\Auth;
@@ -9,6 +11,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Token;
 use Exception;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -79,15 +82,19 @@ class AuthController extends Controller implements HasMiddleware
         DB::table('user_verifications')->insert(['user_id' => $user->id, 'token' => $verification_code, 'email' => $email]);
 
         $subject = 'Please verify your email address.';
-        Mail::send(
-            'email.verify',
-            ['name' => $name, 'verification_code' => $verification_code],
-            function ($mail) use ($email, $name, $subject) {
-                $mail->from(getenv('MAIL_FROM_ADDRESS'), getenv('MAIL_FROM_NAME'));
-                $mail->to($email, $name);
-                $mail->subject($subject);
-            }
-        );
+        Mail::to($email)->send(new VerifyUser([
+            'name' => $name,
+            'verification_code' => $verification_code
+        ]));
+        // Mail::send(
+        //     'email.verify',
+        //     ['name' => $name, 'verification_code' => $verification_code],
+        //     function ($mail) use ($email, $name, $subject) {
+        //         $mail->from(getenv('MAIL_FROM_ADDRESS'), getenv('MAIL_FROM_NAME'));
+        //         $mail->to($email, $name);
+        //         $mail->subject($subject);
+        //     }
+        // );
 
         return response()->json([
             'success' => true,

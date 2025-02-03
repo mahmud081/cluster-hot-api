@@ -124,7 +124,7 @@ class DeviceController extends Controller
         $type = $request->type;
         $ip_address = $request->ip_address;
         $mac = $request->mac;
-        $network_id = $request->network_id;
+        $network_id = $request->network_id ?? 0;
         $position = $request->position;
         $max_value = isset($request->max_value) ? intval($request->max_value) : 0;
         $user_id = auth()->user()->id;
